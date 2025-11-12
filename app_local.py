@@ -5,10 +5,10 @@ import streamlit as st
 
 # ---- import detector (đặt cùng thư mục) ----
 from traffic_light_detection import detect_traffic_light_color, letterbox_resize
-st.set_page_config(page_title="Nhận diện đèn giao thông (local)", page_icon="🚦", layout="centered")
+st.set_page_config(page_title="Nhận diện đèn giao thông", page_icon="🚦", layout="centered")
 
 st.title("🚦 Nhận diện giá trị đèn giao thông")
-st.caption("Chọn 1 ảnh → phân tích màu đèn đang sáng, kèm kết luận tiếng Việt")
+st.caption("Chọn 1 ảnh → phân tích màu đèn đang sáng, kèm kết luận")
 
 # Tuỳ chọn
 col1, col2 = st.columns(2)
@@ -62,7 +62,7 @@ if uploaded is not None:
         result["orientation"] = "horizontal"
 
     # Kết luận TV
-    st.subheader("Kết luận (Tiếng Việt)")
+    st.subheader("Kết luận")
     st.success(vietnamese_conclusion(result))
 
     # Ảnh đã đánh dấu
