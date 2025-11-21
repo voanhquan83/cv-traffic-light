@@ -28,7 +28,8 @@ def vietnamese_conclusion(result: dict) -> str:
         color_vi={"red":"đỏ","yellow":"vàng","green":"xanh","unknown":"không rõ"}.get(lp.get("label","unknown"),"không rõ")
         parts.append(f"{slot_vi}: {color_vi}")
     lamps_text = "; ".join(parts) if parts else "Không phát hiện đủ 3 bóng."
-    return f"{label_vi.get(result.get('label','unknown'),'Không xác định')}. Hướng: {ori_vi.get(result.get('orientation',''),'không rõ')}. Trạng thái các bóng: {lamps_text}."
+    #return f"{label_vi.get(result.get('label','unknown'),'Không xác định')}. Hướng: {ori_vi.get(result.get('orientation',''),'không rõ')}. Trạng thái các bóng: {lamps_text}."
+    return f"{label_vi.get(result.get('label','unknown'),'Không xác định')}. Hướng: {ori_vi.get(result.get('orientation',''),'không rõ')}."
 
 def draw_vis(src_path: str, result: dict) -> np.ndarray:
     img = cv2.imread(src_path)
