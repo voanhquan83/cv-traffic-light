@@ -2,6 +2,69 @@ import cv2, os, json, math
 import numpy as np
 from typing import Tuple, Dict, Any, Optional, List
 
+#===HELPER FUNCTIONS FOR TRAFFIC LIGHT DETECTION===#
+def expand_box(box, img_shape, orientation, scale_y=3.0, scale_x=1.8):
+    """
+    Mở rộng bounding box của bóng đang sáng để bao trùm cả cụm đèn giao thông.
+    box: [x, y, w, h] trên ảnh resized.
+    img_shape: (H, W, C)
+    orientation: "vertical" hoặc "horizontal"
+    """
+    if box is None:
+        return None
+
+    H, W = img_shape[:2]
+    x, y, w, h = box
+
+    cx = x + w // 2
+    cy = y + h // 2
+
+    if orientation == "vertical":
+        # cao gấp ~3 lần, rộng hơn chút
+        new_h = int(h * scale_y)
+        new_w = int(w * scale_x)
+    else:
+        # horizontal: rộng gấp ~3 lần, cao hơn chút
+        new_w = int(w * scale_y)
+        new_h = int(h * scale_x)
+
+    x0 = max(0, cx - new_w // 2)
+    y0 = max(0, cy - new_h // 2)
+    x1 = min(W, cx + new_w // 2)
+    y1 = min(H, cy + new_h // 2)
+
+    return [x0, y0, x1 - x0, y1 - y0]
+
+def make_lamp_roi_from_best_box(best_box, img_shape, orientation):
+    """
+    Tạo ROI bao quanh cụm đèn giao thông dựa trên best_box (1 bóng sáng).
+    best_box: [x, y, w, h] trên ảnh resized (bgr_norm).
+    img_shape: bgr_norm.shape
+    orientation: "vertical" hoặc "horizontal"
+    """
+    if best_box is None:
+        return None
+
+    H, W = img_shape[:2]
+    x, y, w, h = best_box
+
+    if orientation == "vertical":
+        # mở rộng ngang vừa phải, dọc: trên ít, dưới nhiều
+        x0 = max(0, x - int(0.4 * w))
+        x1 = min(W, x + w + int(0.4 * w))
+
+        y0 = max(0, y - int(0.8 * h))
+        y1 = min(H, y + int(2.2 * h))
+    else:
+        # horizontal: mở rộng dọc vừa phải, ngang: trái/phải nhiều
+        y0 = max(0, y - int(0.4 * h))
+        y1 = min(H, y + h + int(0.4 * h))
+
+        x0 = max(0, x - int(0.8 * w))
+        x1 = min(W, x + int(2.2 * w))
+
+    return [x0, y0, x1 - x0, y1 - y0]
+
 # ========== A. Resize giữ tỉ lệ (letterbox) ==========
 def letterbox_resize(img: np.ndarray, target: Tuple[int, int] = (512, 512),
                      color=(0, 0, 0)) -> Tuple[np.ndarray, float, Tuple[int, int]]:
@@ -190,7 +253,7 @@ def nms_circles(circles, iou_thresh=0.35):
             kept.append(c)
     return kept
 
-def detect_all_lamps(bgr_norm, orientation, v_threshold=110):
+def detect_all_lamps(bgr_norm, orientation, v_threshold=110, roi_box=None):
     """
     Trả về danh sách 0–3 đèn, đã lọc theo cột đèn và gom cụm theo trục chính.
     Mỗi phần tử:
@@ -200,7 +263,26 @@ def detect_all_lamps(bgr_norm, orientation, v_threshold=110):
     hsv = cv2.cvtColor(bgr_norm, cv2.COLOR_BGR2HSV)
 
     # --- 1) Ứng viên từ Hough + brightness ---
-    raw = hough_candidates(bgr_norm)  # [(x,y,r), ...]
+    # raw = hough_candidates(bgr_norm)  # [(x,y,r), ...]
+    if roi_box is not None:
+        rx, ry, rw, rh = roi_box
+        # cắt ROI đúng từ bgr_norm
+        roi = bgr_norm[ry:ry+rh, rx:rx+rw]
+        raw_local = hough_candidates(roi)
+
+        raw = []
+        if raw_local is not None:
+            for (cx, cy, r) in raw_local:
+                gx = cx + rx
+                gy = cy + ry
+                # bỏ circle ngoài biên ảnh
+                if gx - r < 0 or gx + r >= w or gy - r < 0 or gy + r >= h:
+                    continue
+                raw.append((gx, gy, r))
+    else:
+        raw = hough_candidates(bgr_norm)
+
+    
     cands = []
     for (x,y,r) in raw:
         if x-r < 0 or y-r < 0 or x+r >= w or y+r >= h:
@@ -380,7 +462,26 @@ def detect_traffic_light_color(image_path: str,
                 label = "unknown"
 
     # Multi-lamp (phát hiện tất cả bóng đang sáng)
-    all_lamps = detect_all_lamps(bgr_norm, orientation, v_threshold=110)
+    # all_lamps = detect_all_lamps(bgr_norm, orientation, v_threshold=110)
+    # best_box chính là box tương ứng màu có score cao nhất
+    roi_box = None
+    if best_box is not None and orientation in ("vertical", "horizontal"):
+        roi_box = expand_box(
+            best_box,
+            bgr_norm.shape,
+            orientation,
+            scale_y=3.0,   # có thể chỉnh sau
+            scale_x=1.8
+        )
+
+    roi_box = make_lamp_roi_from_best_box(best_box, bgr_norm.shape, orientation)
+
+    all_lamps = detect_all_lamps(
+        bgr_norm,
+        orientation,
+        v_threshold=160,   # xem mục 2 bên dưới
+        roi_box=roi_box
+    )
 
     return {
         "label": str(label),
