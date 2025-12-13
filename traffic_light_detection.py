@@ -537,16 +537,16 @@ if __name__ == "__main__":
         lp = res["lamps"][0]  # bạn đã lọc còn 1 phần tử rồi
         x, y, w, h = lp["box"]
         cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        # cv2.putText(
-        #     vis,
-        #     f"{lp['slot']}:{lp['label']}",
-        #     (x, max(0, y - 6)),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.5,
-        #     (0, 255, 0),
-        #     1,
-        #     cv2.LINE_AA,
-        # )
+        cv2.putText(
+            vis,
+            f"{lp['slot']}:{lp['label']}",
+            (x, max(0, y - 6)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0, 255, 0),
+            1,
+            cv2.LINE_AA,
+        )
     else:
         if res.get("box") is not None:
             x, y, w, h = res["box"]
@@ -554,7 +554,7 @@ if __name__ == "__main__":
 
 
     txt = f"{res['label']} | {res['orientation']} ({int(res['score'])})"
-    # cv2.putText(vis, txt, (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,255), 2, cv2.LINE_AA)
+    cv2.putText(vis, txt, (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,255), 2, cv2.LINE_AA)
     out_path = os.path.splitext(args.image)[0] + "_vis.jpg"
     cv2.imwrite(out_path, vis)
     print(f"Saved visualization: {out_path}")
