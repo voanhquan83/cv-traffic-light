@@ -464,27 +464,17 @@ def detect_traffic_light_color(image_path: str,
     # Multi-lamp (phát hiện tất cả bóng đang sáng)
     # all_lamps = detect_all_lamps(bgr_norm, orientation, v_threshold=110)
     # best_box chính là box tương ứng màu có score cao nhất
-    roi_box = None
-    
-    if best_box is not None and orientation in ("vertical", "horizontal"):
-        roi_box = expand_box(
-            best_box,
-            bgr_norm.shape,
-            orientation,
-            scale_y=3.0,   # có thể chỉnh sau
-            scale_x=1.8
-        )
-
+    # ROI để tìm các bóng đèn (ưu tiên ROI theo best_box nếu có)
     roi_box = make_lamp_roi_from_best_box(best_box, bgr_norm.shape, orientation)
 
     all_lamps = detect_all_lamps(
         bgr_norm,
         orientation,
-        v_threshold=160,   # xem mục 2 bên dưới
+        v_threshold=160,
         roi_box=roi_box
     )
 
-    # --- CHỈ GIỮ 1 BOX "ĐÚNG NHẤT" ---
+    # Chỉ giữ 1 lamp "đúng nhất" để visualize không vẽ nhiều box
     best_lamp = None
     if all_lamps:
         same_label = [lp for lp in all_lamps if lp.get("label") == label]
@@ -492,14 +482,12 @@ def detect_traffic_light_color(image_path: str,
         best_lamp = max(pick_from, key=lambda lp: float(lp.get("brightness", 0.0)))
 
     lamps_keep = [best_lamp] if best_lamp is not None else []
-
     return {
         "label": str(label),
         "box": [int(v) for v in best_box] if best_box else None,
         "score": float(best_score),
         "orientation": orientation,
-        # "lamps": all_lamps,   # <— danh sách 0–3 bóng
-        "lamps": lamps_keep,   # <— danh sách 0–3 bóng
+        "lamps": lamps_keep,   # <— chỉ giữ 1 bóng (nếu có)
         "debug": {
             "scores": {k: float(v) for k, v in scores.items()},
             "offset": [int(offset[0]), int(offset[1])],
@@ -532,29 +520,15 @@ if __name__ == "__main__":
     # visualize
     bgr = cv2.imread(args.image)
     vis, _, _ = letterbox_resize(bgr, (512, 512))
-   # Nếu có lamp thì CHỈ vẽ lamp (1 box). Nếu không có lamp thì vẽ res["box"].
+    # draw: chỉ vẽ 1 bounding box, không vẽ text
     if res.get("lamps"):
-        lp = res["lamps"][0]  # bạn đã lọc còn 1 phần tử rồi
-        x, y, w, h = lp["box"]
+        # đã được lọc còn 0–1 phần tử ở detect_traffic_light_color()
+        x, y, w, h = res["lamps"][0]["box"]
         cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        cv2.putText(
-            vis,
-            f"{lp['slot']}:{lp['label']}",
-            (x, max(0, y - 6)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (0, 255, 0),
-            1,
-            cv2.LINE_AA,
-        )
-    else:
-        if res.get("box") is not None:
-            x, y, w, h = res["box"]
-            cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 255), 2)
+    elif res.get("box") is not None:
+        x, y, w, h = res["box"]
+        cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-
-    txt = f"{res['label']} | {res['orientation']} ({int(res['score'])})"
-    cv2.putText(vis, txt, (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,255), 2, cv2.LINE_AA)
     out_path = os.path.splitext(args.image)[0] + "_vis.jpg"
     cv2.imwrite(out_path, vis)
     print(f"Saved visualization: {out_path}")
