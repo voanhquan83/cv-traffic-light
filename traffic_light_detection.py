@@ -465,6 +465,7 @@ def detect_traffic_light_color(image_path: str,
     # all_lamps = detect_all_lamps(bgr_norm, orientation, v_threshold=110)
     # best_box chính là box tương ứng màu có score cao nhất
     roi_box = None
+    
     if best_box is not None and orientation in ("vertical", "horizontal"):
         roi_box = expand_box(
             best_box,
@@ -483,12 +484,22 @@ def detect_traffic_light_color(image_path: str,
         roi_box=roi_box
     )
 
+    # --- CHỈ GIỮ 1 BOX "ĐÚNG NHẤT" ---
+    best_lamp = None
+    if all_lamps:
+        same_label = [lp for lp in all_lamps if lp.get("label") == label]
+        pick_from = same_label if same_label else all_lamps
+        best_lamp = max(pick_from, key=lambda lp: float(lp.get("brightness", 0.0)))
+
+    lamps_keep = [best_lamp] if best_lamp is not None else []
+
     return {
         "label": str(label),
         "box": [int(v) for v in best_box] if best_box else None,
         "score": float(best_score),
         "orientation": orientation,
-        "lamps": all_lamps,   # <— danh sách 0–3 bóng
+        # "lamps": all_lamps,   # <— danh sách 0–3 bóng
+        "lamps": lamps_keep,   # <— danh sách 0–3 bóng
         "debug": {
             "scores": {k: float(v) for k, v in scores.items()},
             "offset": [int(offset[0]), int(offset[1])],
