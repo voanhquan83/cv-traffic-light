@@ -532,16 +532,26 @@ if __name__ == "__main__":
     # visualize
     bgr = cv2.imread(args.image)
     vis, _, _ = letterbox_resize(bgr, (512, 512))
-    if res["box"] is not None:
-        x,y,w,h = res["box"]
-        cv2.rectangle(vis, (x,y), (x+w,y+h), (0,255,255), 2)
-    # vẽ từng bóng (nếu có)
-    if "lamps" in res:
-        for lp in res["lamps"]:
-            x,y,w,h = lp["box"]
-            cv2.rectangle(vis, (x,y), (x+w,y+h), (0,255,0), 2)
-            cv2.putText(vis, f"{lp['slot']}:{lp['label']}",
-                        (x, max(0,y-6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)
+   # Nếu có lamp thì CHỈ vẽ lamp (1 box). Nếu không có lamp thì vẽ res["box"].
+    if res.get("lamps"):
+        lp = res["lamps"][0]  # bạn đã lọc còn 1 phần tử rồi
+        x, y, w, h = lp["box"]
+        cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # cv2.putText(
+        #     vis,
+        #     f"{lp['slot']}:{lp['label']}",
+        #     (x, max(0, y - 6)),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     0.5,
+        #     (0, 255, 0),
+        #     1,
+        #     cv2.LINE_AA,
+        # )
+    else:
+        if res.get("box") is not None:
+            x, y, w, h = res["box"]
+            cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 255), 2)
+
 
     txt = f"{res['label']} | {res['orientation']} ({int(res['score'])})"
     cv2.putText(vis, txt, (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,255), 2, cv2.LINE_AA)
